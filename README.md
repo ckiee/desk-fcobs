@@ -1,4 +1,4 @@
-# desk-fcobs - my desk's lighting
+# desk-fcobs - the lights on my desk
 
 *There is an ESP32.*
 
