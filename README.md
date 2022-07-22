@@ -22,6 +22,8 @@ Fine.
 
 It's just a tiny little firmware that takes in `PPPPWWWWCWCW`, controlled by a little rust driver that currently just fades. I run it then stop it when I'm happy with the setting.
 
+It doesn't manage it's own serial connection yet, so you'll have to `cargo run | picocom /dev/ttyUSB1 -qb 115200`.
+
 ## You should automate that!
 
 Yes, yes, I should. Maybe I'll make it work like [`redshift`](http://jonls.dk/redshift/).
