@@ -18,7 +18,7 @@ void setup()
 	ledcAttachPin(warm_pin, 1);
 	ledcAttachPin(cold_pin, 2);
 	ledcAttachPin(supply_pin, 3);
-	// TODO: change freq to >3kHz
+	// it doesn't work at 3kHz, go figure
 	ledcSetup(1, 1200, 16);
 	ledcSetup(2, 1200, 16);
 	ledcSetup(3, 1200, 16);
