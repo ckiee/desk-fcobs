@@ -1,53 +1,96 @@
 use std::{
     io::{self, Write},
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
-#[derive(Eq, PartialEq, Copy, Clone)]
-enum Channel {
-    Warm,
-    Cold,
-}
-
-impl Channel {
-    fn inv(self) -> Self {
-        match self {
-            Channel::Cold => Channel::Warm,
-            Channel::Warm => Channel::Cold
-        }
-    }
-}
-
-fn fade(scaled_max: i32, max: i32, scale: f64, backwards: bool, ch: Channel) {
-    for unscaled in 0..scaled_max {
-        let us = if backwards { max - unscaled } else { unscaled };
-        let x = (us as f64 / scale) as i32;
-        let msb = (x >> 8) as u8;
-        let lsb = ((x & 0xff) as u8).saturating_add(15);
-        let mut buf = vec![msb, lsb];
-        if ch == Channel::Warm {
-            buf.append(&mut vec![msb, lsb, 0, 0]);
-        } else {
-            buf.append(&mut vec![0, 0, msb, lsb]);
-        }
-        io::stdout().write(&buf).unwrap();
-        io::stdout().flush().unwrap();
-        thread::sleep(Duration::from_millis(5));
-    }
-}
+use eframe::egui;
+use serialport::SerialPort;
 
 fn main() {
-    let scale = 0.002;
-    let max = 0xffff;
-    let scaled_max = (scale * max as f64) as i32;
-    let mut backwards = false;
-    let mut channel = Channel::Warm;
-    loop {
-        fade(scaled_max, max, scale, backwards, channel);
-        backwards = !backwards;
-        fade(scaled_max, max, scale, backwards, channel);
-        backwards = !backwards;
-        channel = channel.inv();
+    // let mut port = serialport::new("/dev/ttyUSB1", 115_200)
+    //     .timeout(Duration::from_millis(10))
+    //     .open()
+    //     .expect("Failed to open port");
+    let clock = Instant::now();
+    // loop {
+    //     let sine = |freq: f32, phase: f32| {
+    //         let t = ((clock.elapsed().as_secs_f32() + phase) * freq).sin();
+    //         ((t + 0.5) * 65535.0) as u16
+    //     };
+
+    //     send(&mut port, &[
+    //         sine(1.5, 0.0),
+    //         sine(1.5, 0.5),
+    //         sine(1.2, 1.0),
+    //         sine(1.2, 1.5),
+    //     ]);
+
+    //     thread::sleep(Duration::from_millis(5));
+    //     // > 115200bps/8/4/2
+    //     // 1800
+    //     // > 1/1800
+    //     // 0.0005555555555555556
+    // }
+    let options = eframe::NativeOptions::default();
+    eframe::run_native("ledc", options, Box::new(|_cc| Box::new(MyApp::default())));
+}
+
+struct Strip(u16, u16);
+struct MyApp {
+    strips: Vec<Strip>,
+    port: Box<dyn SerialPort>,
+}
+
+impl MyApp {
+    fn send_state(&mut self) {
+        for strip in &self.strips {
+            let v = vec![strip.1, strip.0]; // TODO &[]
+            send(&mut self.port, &v);
+        }
     }
+}
+
+impl Default for MyApp {
+    fn default() -> Self {
+        Self {
+            strips: vec![Strip(0, 0), Strip(0, 0)],
+            port: serialport::new("/dev/ttyUSB1", 115_200)
+                .timeout(Duration::from_millis(10))
+                .open()
+                .expect("Failed to open port"),
+        }
+    }
+}
+
+impl eframe::App for MyApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("ledc");
+            // ui.horizontal(|ui| {
+            //     ui.label("Your name: ");
+            //     ui.text_edit_singleline(&mut self.name);
+            // });
+            for strip in &mut self.strips {
+                ui.horizontal_centered(|ui| {
+                    ui.add(egui::Slider::new(&mut strip.0, 0..=65535).text("cold"));
+                    ui.add(egui::Slider::new(&mut strip.1, 0..=65535).text("warm"));
+                });
+            }
+            self.send_state();
+            // if ui.button("Click each year").clicked() {
+            //     self.age += 1;
+            // }
+            // ui.label(format!("Hello '{}', age {}", self.name, self.age));
+        });
+    }
+}
+fn send(port: &mut Box<dyn SerialPort>, dat: &[u16]) {
+    dbg!(&dat);
+    let mut encoded: Vec<u8> = vec![];
+    for v in dat {
+        encoded.push((v >> 8) as u8);
+        encoded.push((v & 0xff) as u8);
+    }
+    port.write(&encoded).unwrap();
 }
