@@ -4,23 +4,25 @@
 #include <stdarg.h>
 
 // blessed be https://arduino.stackexchange.com/questions/56517/formatting-strings-in-arduino-for-output
+bool debugging_enabled = 0;
 void dbgln(const char* input...) {
-  va_list args;
-  va_start(args, input);
-  for(const char* i=input; *i!=0; ++i) {
-    if(*i!='%') { Serial.print(*i); continue; }
-    switch(*(++i)) {
-      case '%': Serial.print('%'); break;
-      case 's': Serial.print(va_arg(args, char*)); break;
-      case 'd': Serial.print(va_arg(args, int), DEC); break;
-      case 'b': Serial.print(va_arg(args, int), BIN); break;
-      case 'o': Serial.print(va_arg(args, int), OCT); break;
-      case 'x': Serial.print(va_arg(args, int), HEX); break;
-      case 'f': Serial.print(va_arg(args, double), 2); break;
-    }
-  }
-  Serial.println();
-  va_end(args);
+	if (!debugging_enabled)return;
+	va_list args;
+	va_start(args, input);
+	for(const char* i=input; *i!=0; ++i) {
+		if(*i!='%') { Serial.print(*i); continue; }
+		switch(*(++i)) {
+		case '%': Serial.print('%'); break;
+		case 's': Serial.print(va_arg(args, char*)); break;
+		case 'd': Serial.print(va_arg(args, int), DEC); break;
+		case 'b': Serial.print(va_arg(args, int), BIN); break;
+		case 'o': Serial.print(va_arg(args, int), OCT); break;
+		case 'x': Serial.print(va_arg(args, int), HEX); break;
+		case 'f': Serial.print(va_arg(args, double), 2); break;
+		}
+	}
+	Serial.println();
+	va_end(args);
 }
 
 struct ledState {
@@ -71,6 +73,7 @@ enum instr {
 	IIdentify = 0,
 	IImmediate = 1,
 	IInterpolateFrame = 2,
+	IDebugEnable = 3,
 } typedef instr;
 
 inline uint16_t read_u16() {
@@ -96,23 +99,11 @@ void read_led_state(ledState *out) {
 	out->dcold = read_u16();
 	out->cwarm = read_u16();
 	out->ccold = read_u16();
-	dbgln("++ read_led_state");
-	dbgln(out->cwarm);
-	dbgln(out->ccold);
-	dbgln("+-+");
-	dbgln(out->dwarm);
-	dbgln(out->dcold);
-	dbgln("--");
+	dbgln("++ read_led_state (%d,%d|%d,%d) ++", out->cwarm, out->ccold, out->dwarm, out->dcold);
 }
 
 void set_led_state(ledState *in) {
-	dbgln("++ set_led_state");
-	dbgln(in->cwarm);
-	dbgln(in->ccold);
-	dbgln("+-+");
-	dbgln(in->dwarm);
-	dbgln(in->dcold);
-	dbgln("--");
+	dbgln("++ set_led_state (%d,%d|%d,%d) ++", in->cwarm, in->ccold, in->dwarm, in->dcold);
 	ledcWrite(1, in->dwarm);
 	ledcWrite(2, in->dcold);
 	ledcWrite(3, in->cwarm);
@@ -123,7 +114,7 @@ void handle_command()
 {
 	if (Serial.available() > 0) {
 		instr inst = (instr)Serial.read();
-		if (inst == INoop) {
+		if (inst == IIdentify) {
 			Serial.println("desk-fcobs");
 			return;
 		} else if (inst == IInterpolateFrame) {
@@ -140,6 +131,8 @@ void handle_command()
 			set_led_state(&currentState);
 			set_led_state(&animStartState);
 			dbgln("OK");
+		} else if (inst == IDebugEnable) {
+			debugging_enabled = true;
 		} else {
 			dbgln("I??");
 		}
