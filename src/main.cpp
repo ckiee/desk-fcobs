@@ -74,6 +74,7 @@ enum instr {
 	IImmediate = 1,
 	IInterpolateFrame = 2,
 	IDebugEnable = 3,
+	INoInterpolate = 4,
 } typedef instr;
 
 inline uint16_t read_u16() {
@@ -133,6 +134,8 @@ void handle_command()
 			dbgln("OK");
 		} else if (inst == IDebugEnable) {
 			debugging_enabled = true;
+		} else if (inst == INoInterpolate) {
+			animValid = false;
 		} else {
 			dbgln("I??");
 		}
