@@ -129,8 +129,8 @@ void handle_command()
 		} else if (inst == IImmediate) {
 			dbgln("IImmediate");
 			read_led_state(&currentState);
+			memcpy(&animStartState, &currentState, sizeof(ledState));
 			set_led_state(&currentState);
-			set_led_state(&animStartState);
 			dbgln("OK");
 		} else if (inst == IDebugEnable) {
 			debugging_enabled = true;
