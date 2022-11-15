@@ -1,18 +1,15 @@
 use std::{
-    io::{self, Write},
+    io::Write,
     sync::{Arc, Mutex},
-    thread::{self, spawn, JoinHandle, Thread},
+    thread::{self, spawn, JoinHandle},
     time::{Duration, Instant},
 };
 
-use eframe::{
-    egui::{self, ProgressBar, Slider},
-    epaint::Vec2,
-};
+use eframe::egui::{self, Slider};
 use serialport::SerialPort;
 
 fn main() {
-    let mut options = eframe::NativeOptions::default();
+    let options = eframe::NativeOptions::default();
 
     eframe::run_native("ledc", options, Box::new(|_cc| Box::new(LedApp::default())));
 }
@@ -44,6 +41,7 @@ struct LedApp {
     #[allow(unused)]
     update_thread: JoinHandle<()>,
     first_render: bool,
+    poll_update_fast: bool,
 }
 
 impl Default for LedApp {
@@ -57,10 +55,11 @@ impl Default for LedApp {
         let rarc = Arc::clone(&uarc);
 
         let update_thread = spawn(move || {
-            let mut port = serialport::new("/dev/ttyUSB1", 115_200)
-                .timeout(Duration::from_millis(10))
+            let mut port = serialport::new("/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0", 115_200)
+                .timeout(Duration::from_millis(50))
                 .open()
                 .expect("Failed to open port");
+
             let arc = rarc;
             loop {
                 let serial_data = {
@@ -83,7 +82,7 @@ impl Default for LedApp {
                                 let u16_max = u16::MAX as f32;
                                 let u16_halfmax = u16_max / 2.0;
                                 let val = match ty {
-                                    WaveType::Sine => (pos.sin() * u16_halfmax + u16_halfmax),
+                                    WaveType::Sine => pos.sin() * u16_halfmax + u16_halfmax,
                                     WaveType::Square(duty) => {
                                         if pos_mod < duty {
                                             u16_max
@@ -114,8 +113,9 @@ impl Default for LedApp {
                         .collect::<Vec<_>>()
                 };
 
+                port.write(&[0x4, 0x1]).unwrap();
                 for d in serial_data {
-                    send(&mut port, &d);
+                    send_immediate(&mut port, &d);
                 }
             }
         });
@@ -231,8 +231,10 @@ impl eframe::App for LedApp {
     }
 }
 
-fn send(port: &mut Box<dyn SerialPort>, dat: &[u16]) {
-    // dbg!(&dat);
+// Test:
+// 01 ffff ffff ffff ffff
+// 01ffffffffffffffff
+fn send_immediate(port: &mut Box<dyn SerialPort>, dat: &[u16]) {
     let mut encoded: Vec<u8> = vec![];
     for v in dat {
         encoded.push((v >> 8) as u8);
