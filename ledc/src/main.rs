@@ -124,6 +124,7 @@ impl Default for LedApp {
             shared: uarc,
             update_thread,
             first_render: true,
+            poll_update_fast: true, // TODO try false for startup cpu% maybe?
         }
     }
 }
@@ -136,7 +137,13 @@ impl eframe::App for LedApp {
             self.first_render = false;
             return;
         }
-        ctx.request_repaint_after(Duration::from_secs_f32(1.0 / 144.0)); //TODO: doesn't compensate for draw time, rough thing so updates from other thread occur
+        //TODO: doesn't compensate for draw time, rough thing so updates from other thread occur
+        let repaint_rate = if self.poll_update_fast {
+            144.0 // TODO
+        } else {
+            1.0
+        };
+        ctx.request_repaint_after(Duration::from_secs_f32(1.0 / repaint_rate));
         let mut dat = self.shared.lock().unwrap(); // TODO very slow at startup if we happen to be in sync with the data update thread
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("ledc");
@@ -169,6 +176,7 @@ impl eframe::App for LedApp {
                 }
             });
 
+            self.poll_update_fast = false;
             if let Controller::Wave {
                 started_at,
                 interval_ms,
@@ -177,6 +185,7 @@ impl eframe::App for LedApp {
                 ty,
             } = &mut dat.controller
             {
+                self.poll_update_fast = true;
                 ui.group(|ui| {
                     ui.label("Slide controls");
                     let mut immut_pos = (started_at.elapsed().as_millis() as f32) % *interval_ms;
