@@ -120,13 +120,22 @@ void handle_command()
 			return;
 		} else if (inst == IInterpolateFrame) {
 			dbgln("IInterpolate");
-			// 02 000001f4 000003e8 ffffffffffffffff
+			// 02 01808580 001b7740 ffff
+			// 0201808580001b7740ffffffffffffffff
 			// 02000001f4000003e8ffffffffffffffff
+			//
+			// few seconds, very cold white - broken atm
+			// 02 0000000f 00000fff ffff0000ffff0000
+			// typ start  | length |  end led state
+			// 02 018603c0 001b7740 0000ffff0000ffff
+			// in 7.2 hours, cold white fade over 30 min
 			animValid = true;
 			animStart = millis() + read_u32();
 			animLength = read_u32();
 			read_led_state(&animEndState);
 		} else if (inst == IImmediate) {
+			// all off
+			// 01ffffffffffffffff
 			dbgln("IImmediate");
 			read_led_state(&currentState);
 			memcpy(&animStartState, &currentState, sizeof(ledState));
@@ -143,25 +152,30 @@ void handle_command()
 }
 
 void interpolate() {
-	// dbgln("animValid %d: animStart=%d,animLength=%d,now=%d", animValid,animStart,animLength,millis());
 	if (!animValid || millis() < animStart)
 		return;
+	dbgln("animValid %d: animStart=%d,animLength=%d,now=%d", animValid,animStart,animLength,millis());
 	uint32_t end = animStart + animLength;
 	double progress = ((double)millis() - (double)end) / (double)animLength / 2 + 0.5;
-	// dbgln("progress=%f,end=%d", progress,end);
-	if (progress > 1.0) {
-		animValid = false;
-		return;
-	}
+	if (progress<0.0) progress=0;
+	if (progress>1.0) progress=1.0;
+	dbgln("progress=%f,end=%d", progress,end);
 	ledState work = {};
 	uint16_t *astart = (uint16_t*)&animStartState;
 	uint16_t *aend = (uint16_t*)&animEndState;
 	uint16_t *awork = (uint16_t*)&work;
 	for (int i = 0; i < 4; i++) {
-		awork[i] = (uint16_t)((double)aend[i]*(progress) - (double)astart[i]*(1.0-progress));
+		dbgln("iter#%d: aenp=%f, astrp=%f(%d * %f)", i, aend[i]*progress,astart[i]*(1.0-progress),astart[i],1.0-progress);
+		// overly complex because U16_MAX is actually 0 brightness, not full 65535 brightness. legacy.
+		awork[i] = U16_MAX-(uint16_t)((double)(U16_MAX-aend[i])*(progress) - (double)(U16_MAX-astart[i])*(1.0-progress));
 	}
 
 	set_led_state(&work);
+
+	if (progress >= 1.0) {
+		animValid = false;
+		return;
+	}
 }
 
 void loop() {
