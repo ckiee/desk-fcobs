@@ -1,10 +1,11 @@
 use std::{
     io::Write,
     sync::{Arc, Mutex},
-    thread::{self, spawn, JoinHandle},
+    thread::{self, spawn, JoinHandle, sleep},
     time::{Duration, Instant},
 };
 
+use anyhow::Result;
 use eframe::egui::{self, Slider};
 use serialport::SerialPort;
 
@@ -44,6 +45,30 @@ struct LedApp {
     poll_update_fast: bool,
 }
 
+fn open_serial() -> Box<dyn SerialPort> {
+    let open = || {
+        serialport::new(
+        "/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0",
+        115_200,
+    )
+    .timeout(Duration::from_millis(500))
+    .open()
+    };
+
+    let mut tries = 0;
+    loop {
+        let result = open();
+        match result {
+            Ok(port) => return port,
+            Err(err) => {
+                eprintln!("[try {tries}] serial port open failed: {:?}", err);
+                tries += 1;
+                sleep(Duration::from_millis(100));
+            }
+        }
+    }
+}
+
 impl Default for LedApp {
     fn default() -> Self {
         let shared_dat = Mutex::new(SharedAppData {
@@ -55,11 +80,7 @@ impl Default for LedApp {
         let rarc = Arc::clone(&uarc);
 
         let update_thread = spawn(move || {
-            let mut port = serialport::new("/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0", 115_200)
-                .timeout(Duration::from_millis(50))
-                .open()
-                .expect("Failed to open port");
-
+            let mut port = open_serial();
             let arc = rarc;
             loop {
                 let serial_data = {
@@ -113,9 +134,24 @@ impl Default for LedApp {
                         .collect::<Vec<_>>()
                 };
 
-                port.write(&[0x4, 0x1]).unwrap();
-                for d in serial_data {
-                    send_immediate(&mut port, &d);
+                let send =
+                    |port: &mut Box<dyn SerialPort>, serial_data: &Vec<Vec<u16>>| -> Result<()> {
+                        port.write(&[0x4, 0x1])?;
+                        for d in serial_data {
+                            send_immediate(port, &d)?;
+                        }
+                        Ok(())
+                    };
+                let mut tries = 0;
+                while let Err(err) = send(&mut port, &serial_data) {
+                    if tries >= 3 {
+                        panic!("serial port write failed too many times: {:?}", err);
+                    }
+                    // try reopening the port after a bit..
+                    sleep(Duration::from_millis(50));
+                    port = open_serial();
+
+                    tries += 1;
                 }
             }
         });
@@ -234,11 +270,12 @@ impl eframe::App for LedApp {
 // Test:
 // 01 ffff ffff ffff ffff
 // 01ffffffffffffffff
-fn send_immediate(port: &mut Box<dyn SerialPort>, dat: &[u16]) {
+fn send_immediate(port: &mut Box<dyn SerialPort>, dat: &[u16]) -> Result<()> {
     let mut encoded: Vec<u8> = vec![];
     for v in dat {
         encoded.push((v >> 8) as u8);
         encoded.push((v & 0xff) as u8);
     }
-    port.write(&encoded).unwrap();
+    port.write(&encoded)?;
+    Ok(())
 }
