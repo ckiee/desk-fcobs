@@ -124,11 +124,14 @@ void handle_command()
 			// 0201808580001b7740ffffffffffffffff
 			// 02000001f4000003e8ffffffffffffffff
 			//
-			// few seconds, very cold white - broken atm
+			// few seconds, full warm white
 			// 02 0000000f 00000fff ffff0000ffff0000
 			// typ start  | length |  end led state
-			// 02 018603c0 001b7740 0000ffff0000ffff
-			// in 7.2 hours, cold white fade over 30 min
+			// 02 018603c0 01700ac0 0000ffff0000ffff
+			// in ~6.7 hours, cold white fade over 30 min
+			//
+			// few seconds, fade out turn it all off; FIXME: fades the wrong direction then turns off correctly at end
+			// 02 0000000f 00000fff ffffffffffffffff
 			animValid = true;
 			animStart = millis() + read_u32();
 			animLength = read_u32();
