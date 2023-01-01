@@ -3,15 +3,16 @@
     "flake-compat": {
       "flake": false,
       "locked": {
-        "lastModified": 1650374568,
-        "narHash": "sha256-Z+s0J8/r907g149rllvwhb4pKi8Wam5ij0st8PwAh+E=",
-        "owner": "edolstra",
+        "lastModified": 1672609320,
+        "narHash": "sha256-PxPHfmigxn30KvAZORNr8pztFtS3DJCWeRvyNvQifsU=",
+        "owner": "ckiee",
         "repo": "flake-compat",
-        "rev": "b4a34015c698c7793d592d66adbab377907a2be8",
+        "rev": "23b7a173da2b0590fecfd4df66c11e44ecf2d832",
         "type": "github"
       },
       "original": {
-        "owner": "edolstra",
+        "owner": "ckiee",
+        "ref": "add-overrideInputs",
         "repo": "flake-compat",
         "type": "github"
       }

@@ -4,7 +4,7 @@
     naersk.url = "github:nix-community/naersk";
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-compat = {
-      url = "github:edolstra/flake-compat";
+      url = "github:ckiee/flake-compat/add-overrideInputs";
       flake = false;
     };
   };
