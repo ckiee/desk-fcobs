@@ -1,7 +1,7 @@
 use std::{
     io::Write,
     sync::{Arc, Mutex},
-    thread::{self, spawn, JoinHandle, sleep},
+    thread::{self, sleep, spawn, JoinHandle},
     time::{Duration, Instant},
 };
 
@@ -36,7 +36,10 @@ enum WaveType {
 struct SharedAppData {
     strips: Vec<Strip>,
     controller: Controller,
+    relay_enabled: bool,
+    relay_changed: bool,
 }
+
 struct LedApp {
     shared: Arc<Mutex<SharedAppData>>,
     #[allow(unused)]
@@ -74,6 +77,8 @@ impl Default for LedApp {
         let shared_dat = Mutex::new(SharedAppData {
             strips: vec![Strip(0, 0), Strip(0, 0)],
             controller: Controller::Manual,
+            relay_enabled: false,
+            relay_changed: false,
         });
 
         let uarc = Arc::new(shared_dat);
@@ -128,20 +133,37 @@ impl Default for LedApp {
                     // prepare the data, copying it so we don't hold the lock up as long
                     // in case of a deadlock. originally thought this would improve perf
                     // in normal cases too, but nope.
+
+                    let mut out = Vec::with_capacity(24);
+
+                    // set the led strip's states
+                    out.push(0x4);
+                    out.push(0x1);
                     dat.strips
                         .iter()
                         .map(|strip| vec![u16::MAX - strip.0, u16::MAX - strip.1])
-                        .collect::<Vec<_>>()
+                        .map(|words| {
+                            words
+                                .iter()
+                                .map(|word| vec![(word >> 8) as u8, (word & 0xff) as u8])
+                                .collect::<Vec<_>>()
+                        })
+                        .flatten()
+                        .into_iter()
+                        .for_each(|mut dat| out.append(&mut dat));
+
+                    if dat.relay_changed {
+                        out.push(0x5);
+                        out.push(if dat.relay_enabled { 255 } else { 0 });
+                    }
+
+                    out
                 };
 
-                let send =
-                    |port: &mut Box<dyn SerialPort>, serial_data: &Vec<Vec<u16>>| -> Result<()> {
-                        port.write(&[0x4, 0x1])?;
-                        for d in serial_data {
-                            send_immediate(port, &d)?;
-                        }
-                        Ok(())
-                    };
+                let send = |port: &mut Box<dyn SerialPort>, serial_data: &Vec<u8>| -> Result<()> {
+                    port.write(serial_data)?;
+                    Ok(())
+                };
                 let mut tries = 0;
                 while let Err(err) = send(&mut port, &serial_data) {
                     if tries >= 3 {
@@ -183,20 +205,26 @@ impl eframe::App for LedApp {
         let mut dat = self.shared.lock().unwrap(); // TODO very slow at startup if we happen to be in sync with the data update thread
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("ledc");
-            ui.group(|ui| {
-                ui.label("Control mode");
-                ui.radio_value(&mut dat.controller, Controller::Manual, "Manual");
-                if ui
-                    .radio(matches!(dat.controller, Controller::Wave { .. }), "Wave")
-                    .clicked()
-                {
-                    dat.controller = Controller::Wave {
-                        started_at: Instant::now(),
-                        interval_ms: 1000.0,
-                        warm: true,
-                        cold: false,
-                        ty: WaveType::Sine,
-                    };
+
+            ui.horizontal_wrapped(|ui| {
+                ui.group(|ui| {
+                    ui.label("Control mode");
+                    ui.radio_value(&mut dat.controller, Controller::Manual, "Manual");
+                    if ui
+                        .radio(matches!(dat.controller, Controller::Wave { .. }), "Wave")
+                        .clicked()
+                    {
+                        dat.controller = Controller::Wave {
+                            started_at: Instant::now(),
+                            interval_ms: 1000.0,
+                            warm: true,
+                            cold: false,
+                            ty: WaveType::Sine,
+                        };
+                    }
+                });
+                if ui.checkbox(&mut dat.relay_enabled, "Relay").changed() {
+                    dat.relay_changed = true;
                 }
             });
 
@@ -267,15 +295,3 @@ impl eframe::App for LedApp {
     }
 }
 
-// Test:
-// 01 ffff ffff ffff ffff
-// 01ffffffffffffffff
-fn send_immediate(port: &mut Box<dyn SerialPort>, dat: &[u16]) -> Result<()> {
-    let mut encoded: Vec<u8> = vec![];
-    for v in dat {
-        encoded.push((v >> 8) as u8);
-        encoded.push((v & 0xff) as u8);
-    }
-    port.write(&encoded)?;
-    Ok(())
-}
