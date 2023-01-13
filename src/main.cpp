@@ -32,6 +32,7 @@ struct ledState {
 	uint16_t ccold;
 } typedef ledState;
 
+uint8_t relay_pin = 25;
 // desk
 uint8_t dwarm_pin = 33;   // -WW
 uint8_t dcold_pin = 32;   // -CW
@@ -54,6 +55,7 @@ void setup()
 {
 	Serial.begin(115200);
 	delay(10);
+	pinMode(relay_pin, OUTPUT);
 	ledcAttachPin(dwarm_pin, 1);
 	ledcAttachPin(dcold_pin, 2);
 	ledcAttachPin(cwarm_pin, 3);
@@ -75,6 +77,7 @@ enum instr {
 	IInterpolateFrame = 2,
 	IDebugEnable = 3,
 	INoInterpolate = 4,
+	IRelayControl = 5,
 } typedef instr;
 
 inline uint16_t read_u16() {
@@ -129,6 +132,8 @@ void handle_command()
 			// typ start  | length |  end led state
 			// 02 018603c0 01700ac0 0000ffff0000ffff
 			// in ~6.7 hours, cold white fade over 30 min
+			// 02 019bfcc0 0001d4c0 0000ffff0000ffff
+			// in ~7.5 hours, cold white fade over 2 min
 			//
 			// few seconds, fade out turn it all off; FIXME: fades the wrong direction then turns off correctly at end
 			// 02 0000000f 00000fff ffffffffffffffff
@@ -148,6 +153,8 @@ void handle_command()
 			debugging_enabled = true;
 		} else if (inst == INoInterpolate) {
 			animValid = false;
+		} else if (inst == IRelayControl) {
+			digitalWrite(relay_pin, Serial.read() == 0 ? LOW : HIGH);
 		} else {
 			dbgln("I??");
 		}
