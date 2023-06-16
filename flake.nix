@@ -53,8 +53,8 @@
           };
         defaultPackage = packages.ledc;
 
-        # For `nix develop`:
-        devShell =
-          pkgs.mkShell { nativeBuildInputs = with pkgs; [ rustc cargo ]; };
+        # There's a shell.nix in ./ledc for now
+        # devShell =
+        #  pkgs.mkShell { nativeBuildInputs = with pkgs; [ rustc cargo rust-analyzer ]; };
       });
 }
