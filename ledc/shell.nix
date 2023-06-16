@@ -3,7 +3,7 @@
 with pkgs;
 
 mkShell {
-  buildInputs = [ udev pkg-config cmake fontconfig ];
+  buildInputs = [ udev pkg-config cmake fontconfig rust-analyzer rustc cargo ];
   LD_LIBRARY_PATH =
     lib.makeLibraryPath [
       libGL
