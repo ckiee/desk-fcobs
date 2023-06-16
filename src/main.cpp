@@ -130,8 +130,10 @@ void handle_command()
 			// few seconds, full warm white
 			// 02 0000000f 00000fff ffff0000ffff0000
 			// typ start  | length |  end led state
-			// 02 018603c0 01700ac0 0000ffff0000ffff
+			// 02 01700ac0 01700ac0 0000ffff0000ffff
 			// in ~6.7 hours, cold white fade over 30 min
+			// 02 018603c0 01700ac0 0000ffff0000ffff
+			// in ~7.1 hours, cold white fade over 30 min
 			// 02 019bfcc0 0001d4c0 0000ffff0000ffff
 			// in ~7.5 hours, cold white fade over 2 min
 			//
