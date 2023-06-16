@@ -51,7 +51,7 @@ struct LedApp {
 fn open_serial() -> Box<dyn SerialPort> {
     let open = || {
         serialport::new(
-        "/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0",
+        "/dev/serial/by-id/usb-Silicon_Labs_CP2102_ckie_desk-fcobs_LED_control_0001-if00-port0",
         115_200,
     )
     .timeout(Duration::from_millis(500))
