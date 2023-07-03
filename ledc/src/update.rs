@@ -26,7 +26,7 @@ pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) {
                         cold,
                         ty,
                     } => {
-                        let pos = started_at.elapsed().as_millis() as f32 / (interval_ms as f32);
+                        let pos = started_at.elapsed().as_millis() as f32 / interval_ms;
                         let pos_mod = pos % 1.0;
                         let u16_max = u16::MAX as f32;
                         let u16_halfmax = u16_max / 2.0;
@@ -65,14 +65,12 @@ pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) {
             dat.strips
                 .iter()
                 .map(|strip| vec![u16::MAX - strip.0, u16::MAX - strip.1])
-                .map(|words| {
+                .flat_map(|words| {
                     words
                         .iter()
                         .map(|word| vec![(word >> 8) as u8, (word & 0xff) as u8])
                         .collect::<Vec<_>>()
                 })
-                .flatten()
-                .into_iter()
                 .for_each(|mut dat| out.append(&mut dat));
 
             if dat.relay_changed {
@@ -84,7 +82,7 @@ pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) {
         };
 
         let send = |port: &mut Box<dyn SerialPort>, serial_data: &Vec<u8>| -> Result<()> {
-            port.write(serial_data)?;
+            port.write_all(serial_data)?;
             Ok(())
         };
         let mut tries = 0;

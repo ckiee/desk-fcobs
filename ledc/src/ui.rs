@@ -1,18 +1,14 @@
 use eframe::egui;
 use std::{
-    fs::{self, File},
-    io::Write,
-    path::PathBuf,
-    sync::{Arc, Mutex, atomic},
-    thread::{self, sleep, spawn, JoinHandle},
+    sync::{atomic},
     time::{Duration, Instant},
 };
 
-use anyhow::Result;
-use app_dirs2::{AppDataType, AppInfo};
+
+
 use eframe::egui::{Slider};
-use serde::{Deserialize, Serialize};
-use serialport::SerialPort;
+
+
 
 
 use crate::{LedApp, WaveType, Controller};

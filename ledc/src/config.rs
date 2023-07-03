@@ -1,23 +1,20 @@
-use eframe::egui;
+
 use std::{
-    eprintln,
-    fs::{self, File},
-    io::Write,
-    ops::Add,
+    fs::{self},
     path::PathBuf,
     sync::{
         atomic::{self, AtomicBool},
         Arc, Mutex,
     },
-    thread::{self, sleep, spawn, JoinHandle},
-    time::{Duration, Instant, SystemTime},
+    thread::{self},
+    time::{Duration, Instant},
 };
 
 use anyhow::Result;
 use app_dirs2::{AppDataType, AppInfo};
-use eframe::egui::Slider;
-use serde::{Deserialize, Serialize};
-use serialport::SerialPort;
+
+
+
 
 use crate::{Controller, SharedAppData, Strip};
 
@@ -54,6 +51,12 @@ impl SharedAppData {
         let path = Self::state_path()?;
         fs::write(path, bincode::serialize(self)?)?;
         Ok(())
+    }
+}
+
+impl Default for SharedAppData {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

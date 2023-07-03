@@ -1,15 +1,12 @@
 use std::{
-    fs::{self, File},
-    io::Write,
-    path::PathBuf,
     sync::{Arc, Mutex, atomic::AtomicBool},
-    thread::{self, sleep, spawn, JoinHandle},
+    thread::{sleep, spawn, JoinHandle},
     time::{Duration, Instant},
 };
 
-use anyhow::Result;
-use app_dirs2::{AppDataType, AppInfo};
-use eframe::egui::{self, Slider};
+
+
+
 use serde::{Deserialize, Serialize};
 use serialport::SerialPort;
 
@@ -20,7 +17,7 @@ mod config;
 fn main() {
     let options = eframe::NativeOptions::default();
 
-    eframe::run_native("ledc", options, Box::new(|_cc| Box::new(LedApp::default())));
+    eframe::run_native("ledc", options, Box::new(|_cc| Box::<LedApp>::default()));
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
