@@ -64,7 +64,7 @@ pub fn config_thread(arc: Arc<Mutex<SharedAppData>>, flag: Arc<AtomicBool>) {
 
     loop {
         // We allow forcing a config save by setting the flag to true and then unparking the thread,
-        // Otherwise, we'll just save every 10 min.
+        // Otherwise, we'll just wake up /about/ every second, when the eframe repaint triggers us.
         //
         // This might take you a minute:
         // - https://doc.rust-lang.org/std/thread/fn.park_timeout.html
