@@ -2,7 +2,7 @@ use std::{
     fs::{self, File},
     io::Write,
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, atomic::AtomicBool},
     thread::{self, sleep, spawn, JoinHandle},
     time::{Duration, Instant},
 };
@@ -23,9 +23,9 @@ fn main() {
     eframe::run_native("ledc", options, Box::new(|_cc| Box::new(LedApp::default())));
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 struct Strip(u16, u16);
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 enum Controller {
     Manual,
     Wave {
@@ -46,7 +46,7 @@ enum WaveType {
     Square(f32),
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SharedAppData {
     strips: Vec<Strip>,
     controller: Controller,
@@ -59,8 +59,10 @@ struct LedApp {
     shared: Arc<Mutex<SharedAppData>>,
     #[allow(unused)]
     update_thread: JoinHandle<()>,
+    config_thread: JoinHandle<()>,
     first_render: bool,
     poll_update_fast: bool,
+    config_thread_flag: Arc<AtomicBool>
 }
 
 pub fn open_serial() -> Box<dyn SerialPort> {
@@ -96,10 +98,15 @@ impl Default for LedApp {
         let config_arc = Arc::clone(&display_arc);
 
         let update_thread = spawn(move || update::update_thread(update_arc));
+        let config_thread_flag = Arc::new(AtomicBool::new(true));
+        let config_thread_flag2 = Arc::clone(&config_thread_flag);
+        let config_thread = spawn(move || config::config_thread(config_arc, config_thread_flag2));
 
         Self {
             shared: display_arc,
             update_thread,
+            config_thread,
+            config_thread_flag,
             first_render: true,
             poll_update_fast: true, // TODO try false for startup cpu% maybe?
         }

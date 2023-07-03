@@ -3,7 +3,7 @@ use std::{
     fs::{self, File},
     io::Write,
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, atomic},
     thread::{self, sleep, spawn, JoinHandle},
     time::{Duration, Instant},
 };
@@ -29,7 +29,7 @@ impl eframe::App for LedApp {
         let repaint_rate = if self.poll_update_fast {
             144.0 // TODO
         } else {
-            1.0
+            1.0 // this minimal repaint is reused for the config mechanism, see end of this function.
         };
         ctx.request_repaint_after(Duration::from_secs_f32(1.0 / repaint_rate));
         let mut dat = self.shared.lock().unwrap(); // TODO very slow at startup if we happen to be in sync with the data update thread
@@ -122,5 +122,13 @@ impl eframe::App for LedApp {
                 });
             }
         });
+
+        // The user is probably touching us, let's save the config.
+        //
+        // update gets called at least once a second.
+        if !self.poll_update_fast {
+            self.config_thread_flag.store(true, atomic::Ordering::Release);
+            self.config_thread.thread().unpark();
+        }
     }
 }
