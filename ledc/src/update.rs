@@ -7,7 +7,7 @@ use std::{
 use anyhow::Result;
 use serialport::SerialPort;
 
-use crate::{open_serial, SharedAppData, Controller, WaveType};
+use crate::{open_serial, Controller, SharedAppData, WaveType};
 
 pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) {
     let mut port = open_serial();

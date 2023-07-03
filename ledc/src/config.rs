@@ -1,4 +1,3 @@
-
 use std::{
     fs::{self},
     path::PathBuf,
@@ -12,9 +11,6 @@ use std::{
 
 use anyhow::Result;
 use app_dirs2::{AppDataType, AppInfo};
-
-
-
 
 use crate::{Controller, SharedAppData, Strip};
 

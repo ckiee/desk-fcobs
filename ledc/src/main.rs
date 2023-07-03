@@ -1,18 +1,15 @@
 use std::{
-    sync::{Arc, Mutex, atomic::AtomicBool},
+    sync::{atomic::AtomicBool, Arc, Mutex},
     thread::{sleep, spawn, JoinHandle},
     time::{Duration, Instant},
 };
 
-
-
-
 use serde::{Deserialize, Serialize};
 use serialport::SerialPort;
 
-mod update;
-mod ui;
 mod config;
+mod ui;
+mod update;
 
 fn main() {
     let options = eframe::NativeOptions::default();
@@ -51,7 +48,6 @@ pub struct SharedAppData {
     relay_changed: bool,
 }
 
-
 struct LedApp {
     shared: Arc<Mutex<SharedAppData>>,
     #[allow(unused)]
@@ -59,7 +55,7 @@ struct LedApp {
     config_thread: JoinHandle<()>,
     first_render: bool,
     poll_update_fast: bool,
-    config_thread_flag: Arc<AtomicBool>
+    config_thread_flag: Arc<AtomicBool>,
 }
 
 pub fn open_serial() -> Box<dyn SerialPort> {
@@ -109,4 +105,3 @@ impl Default for LedApp {
         }
     }
 }
-

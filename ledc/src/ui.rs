@@ -1,17 +1,12 @@
 use eframe::egui;
 use std::{
-    sync::{atomic},
+    sync::atomic,
     time::{Duration, Instant},
 };
 
+use eframe::egui::Slider;
 
-
-use eframe::egui::{Slider};
-
-
-
-
-use crate::{LedApp, WaveType, Controller};
+use crate::{Controller, LedApp, WaveType};
 
 impl eframe::App for LedApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -123,7 +118,8 @@ impl eframe::App for LedApp {
         //
         // update gets called at least once a second.
         if !self.poll_update_fast {
-            self.config_thread_flag.store(true, atomic::Ordering::Release);
+            self.config_thread_flag
+                .store(true, atomic::Ordering::Release);
             self.config_thread.thread().unpark();
         }
     }
