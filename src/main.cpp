@@ -78,6 +78,7 @@ enum instr {
 	IDebugEnable = 3,
 	INoInterpolate = 4,
 	IRelayControl = 5,
+	IReadStatus = 6
 } typedef instr;
 
 inline uint16_t read_u16() {
@@ -159,6 +160,9 @@ void handle_command()
 			animValid = false;
 		} else if (inst == IRelayControl) {
 			digitalWrite(relay_pin, Serial.read() == 0 ? LOW : HIGH);
+		} else if (inst == IReadStatus) {
+			// No logs allowed here. This should be called last in the host R/W cycle.
+			Serial.write(animValid);
 		} else {
 			dbgln("I??");
 		}
