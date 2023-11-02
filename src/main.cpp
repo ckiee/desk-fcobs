@@ -178,19 +178,10 @@ void interpolate() {
 	uint16_t *astart = (uint16_t*)&animStartState;
 	uint16_t *aend = (uint16_t*)&animEndState;
 	uint16_t *awork = (uint16_t*)&work;
-	for (int i = 0; i < 4; i++) {
-		dbgln("iter#%d: aenp=%f, astrp=%f(%d * %f)", i, aend[i]*progress,astart[i]*(1.0-progress),astart[i],1.0-progress);
-		// FIXME: all these inverts are to avoid touching the surrounding code,
-		// but still get some reasonable units
-		// astart[i] ~= U16_MAX;
-		// aend[i] ~= U16_MAX;
-
+	for (char i=0;i<=3;i++) {
+		// dbgln("iter#%d: aenp=%f, astrp=%f(%d * %f)", i, aend[i]*progress,astart[i]*(1.0-progress),astart[i],1.0-progress);
 		// lerp
-		awork[i] = (uint16_t)((1.-progress)*((double)(astart[i])) + progress*((double)(aend[1])));
-
-		// astart[i] ~= U16_MAX;
-		// aend[i] ~= U16_MAX;
-		// awork[i] ~= U16_MAX;
+		*awork++ = (uint16_t)((1.-progress)*((double)(*astart++)) + progress*((double)(*aend++)));
 	}
 
 	set_led_state(&work);
