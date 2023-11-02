@@ -101,7 +101,7 @@ impl Default for LedApp {
         let update_arc = Arc::clone(&display_arc);
         let config_arc = Arc::clone(&display_arc);
 
-        let update_thread = spawn(move || update::update_thread(update_arc));
+        let update_thread = spawn(move || update::update_thread(update_arc).unwrap());
         let config_thread_flag = Arc::new(AtomicBool::new(true));
         let config_thread_flag2 = Arc::clone(&config_thread_flag);
         let config_thread = spawn(move || config::config_thread(config_arc, config_thread_flag2));

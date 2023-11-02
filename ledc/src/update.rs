@@ -1,8 +1,8 @@
 use std::{
-    io::{stdout, Write},
+    io::{Write},
     sync::{Arc, Mutex},
     thread::{self, sleep},
-    time::Duration,
+    time::{Duration, SystemTime},
 };
 
 use anyhow::Result;
@@ -10,11 +10,18 @@ use serialport::SerialPort;
 
 use crate::{open_serial, Controller, SharedAppData, Strip, WaveType};
 
-pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) {
+pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) -> Result<()> {
     let mut port = open_serial();
+    let mut status_buf = vec![0u8; 1];
     loop {
+        // Parse status_buf
+        let animation_running = status_buf[0] != 0;
+
         // What we're going to send over the wire.
-        let serial_data = {
+        let (realtime, serial_data) = {
+            // Whether the serial_data returned needs to be sent quickly.
+            let mut realtime = false;
+
             thread::sleep(Duration::from_millis(5));
             // prepare the data, copying it (as we serialize?) so we don't hold the lock
             // up as long in case of a deadlock. originally thought this would improve
@@ -79,31 +86,63 @@ pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) {
 
             // out.push(0x3); //IDebugEnable
 
-            if dat.schedule.status_changed {
-                dat.schedule.status_changed = false;
-                // Are we sending, or cancelling?
-                if dat.schedule.send.is_some() {
-                    out.push(0x2); // IInterpolateFrame
+            {
+                // TODO: Parse these in the UI and have `Duration`s ready to go here.
+                let sched_start = humantime::parse_duration(&dat.schedule.start)?;
+                let sched_length = humantime::parse_duration(&dat.schedule.length)?;
 
-                    // TODO: Parse these in the UI and have `Duration`s ready to go here.
-                    let start = humantime::parse_duration(&dat.schedule.start).unwrap();
-                    let length = humantime::parse_duration(&dat.schedule.length).unwrap();
-
-                    out.extend_from_slice(&u32::try_from(start.as_millis()).unwrap().to_be_bytes());
-                    out.extend_from_slice(
-                        &u32::try_from(length.as_millis()).unwrap().to_be_bytes(),
-                    );
-
-                    push_strips(&dat.schedule.endpoint, &mut out); // [Strip]
-                } else {
-                    out.push(0x4); // INoInterpolate
+                // Reconcile with MCU, swap if animation stopped (probably ended, we hope)
+                //
+                // - This has to run before we start a new animation.
+                // - We're not guaranteed timing for animation_running updates
+                //
+                {
+                    if dat.schedule.send.is_some_and(|t| {
+                        SystemTime::now().duration_since(t).is_ok_and(|dur| {
+                            dur > ((sched_start + sched_length).saturating_sub(
+                                Duration::from_millis(if sched_length > Duration::from_secs(10) {
+                                    250
+                                } else {
+                                    0
+                                }),
+                            ))
+                        })
+                    }) && !animation_running
+                    {
+                        // Swap
+                        let prev = dat.strips.clone();
+                        dat.strips = dat.schedule.endpoint.clone();
+                        dat.schedule.endpoint = prev;
+                        // Sync that we're no longer running
+                        dat.schedule.send = None;
+                    }
                 }
-            }
 
-            // out.push(0x4); // INoInterpolate
+                {
+                    if dat.schedule.status_changed && dat.schedule.send.is_some() {
+                        out.push(0x2); // IInterpolateFrame
+
+                        out.extend_from_slice(
+                            &u32::try_from(sched_start.as_millis())?.to_be_bytes(),
+                        );
+                        out.extend_from_slice(
+                            &u32::try_from(sched_length.as_millis())?.to_be_bytes(),
+                        );
+
+                        push_strips(&dat.schedule.endpoint, &mut out); // [Strip]
+                    }
+
+                    if dat.schedule.send.is_none() {
+                        out.push(0x4); // INoInterpolate
+                    }
+
+                    dat.schedule.status_changed = false;
+                }
+            };
 
             // Selectively push live light data (:
             if match dat.controller {
+                Controller::Manual if dat.schedule.send.is_none() => true,
                 Controller::Manual if dat.strips_changed => {
                     dat.strips_changed = false;
                     true
@@ -113,6 +152,7 @@ pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) {
             } {
                 out.push(0x1); // IImmediate
                 push_strips(&dat.strips, &mut out); // [Strip]
+                realtime = true;
             }
 
             if dat.relay_changed {
@@ -120,15 +160,18 @@ pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) {
                 out.push(dat.relay_enabled.into()) // bool
             }
 
-            out
+            (realtime, out)
         };
 
         // Send it!
         let send = |port: &mut Box<dyn SerialPort>, serial_data: &Vec<u8>| -> Result<()> {
             port.write_all(serial_data)?;
-            let mut buf = vec![0u8; port.bytes_to_read().unwrap() as usize];
-            port.read_exact(&mut buf).unwrap();
-            stdout().lock().write_all(&buf).unwrap();
+            // // debugging, forward debug output back out
+            // // unwrap_or(0) so we may skip this codepath upon I/O error (e.g. USB plugged transitions)
+            // let mut buf = vec![0u8; port.bytes_to_read().unwrap_or(0) as usize];
+            // port.read_exact(&mut buf).unwrap();
+            // stdout().lock().write_all(&buf).unwrap();
+
             Ok(())
         };
         let mut tries = 0;
@@ -141,6 +184,17 @@ pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) {
             port = open_serial();
 
             tries += 1;
+        }
+
+        // `realtime` doesn't do much, so I assume checking /just/ the last frame
+        // is not sufficient. But either way it's okay.
+        if !realtime {
+            // Lastly, let's sneak a bit of data back out. No more error handling here, probably fine.
+            // IReadStatus
+            if port.write_all(&[0x6]).is_ok() {
+                // expect one byte back, but it's okay if we don't get it (see: USB disconnect)
+                port.read_exact(&mut status_buf).ok();
+            }
         }
     }
 }

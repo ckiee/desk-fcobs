@@ -1,4 +1,4 @@
-use eframe::egui::{self, Grid, SelectableLabel, TextEdit, Ui};
+use eframe::egui::{self, Grid, TextEdit, Ui, InnerResponse};
 use std::{
     sync::atomic,
     time::{Duration, Instant, SystemTime},
@@ -49,7 +49,7 @@ impl eframe::App for LedApp {
                 }
             });
 
-            let make_strip_controls = |ui: &mut Ui, strips: &mut Vec<Strip>| -> bool {
+            let make_strip_controls = |ui: &mut Ui, strips: &mut Vec<Strip>| -> InnerResponse<bool> {
                 ui.horizontal_wrapped(|ui| {
                     let mut changed = false;
                     for (i, strip) in strips.iter_mut().enumerate() {
@@ -72,10 +72,9 @@ impl eframe::App for LedApp {
                     }
                     changed
                 })
-                .inner
             };
 
-            dat.strips_changed |= make_strip_controls(ui, &mut dat.strips);
+            dat.strips_changed |= make_strip_controls(ui, &mut dat.strips).inner;
 
             self.poll_update_fast = false;
             if let Controller::Wave {
@@ -130,10 +129,9 @@ impl eframe::App for LedApp {
             }
 
             ui.group(|ui| {
-                if ui
-                    .selectable_label(dat.schedule.send.is_some(), "Schedule")
-                    .clicked()
-                {
+                let btn = ui
+                    .selectable_label(dat.schedule.send.is_some(), "Schedule");
+                if btn.clicked() {
                     if dat.schedule.send.is_none() {
                         dat.schedule.send = Some(SystemTime::now());
                     } else {
@@ -142,10 +140,16 @@ impl eframe::App for LedApp {
                         dat.strips_changed = true;
                     }
                     dat.schedule.status_changed = true;
+                } else if btn.secondary_clicked() {
+                    // Swap
+                    let prev = dat.strips.clone();
+                    dat.strips = dat.schedule.endpoint.clone();
+                    dat.schedule.endpoint = prev;
                 }
 
                 if {
                     ui.vertical(|ui| {
+                        ui.horizontal(|ui|{
                         Grid::new("schedule_grid")
                             .num_columns(2)
                             .show(ui, |ui| {
@@ -171,9 +175,10 @@ impl eframe::App for LedApp {
                                 changed
                             })
                             .inner
+                        }).inner
                     })
                     .inner
-                } || make_strip_controls(ui, &mut dat.schedule.endpoint)
+                } || make_strip_controls(ui, &mut dat.schedule.endpoint).inner
                 {
                     dat.schedule.send = None;
                 }
