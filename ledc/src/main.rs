@@ -1,7 +1,7 @@
 use std::{
     sync::{atomic::AtomicBool, Arc, Mutex},
     thread::{sleep, spawn, JoinHandle},
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime},
 };
 
 use serde::{Deserialize, Serialize};
@@ -41,11 +41,22 @@ enum WaveType {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+struct ScheduleUi {
+    start: String,
+    length: String,
+    endpoint: Vec<Strip>,
+    send: Option<SystemTime>, // TODO: Set to none once `length` has passed.
+    status_changed: bool,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SharedAppData {
     strips: Vec<Strip>,
+    strips_changed: bool,
     controller: Controller,
     relay_enabled: bool,
     relay_changed: bool,
+    schedule: ScheduleUi,
 }
 
 struct LedApp {

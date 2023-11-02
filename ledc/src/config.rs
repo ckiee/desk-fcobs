@@ -12,15 +12,25 @@ use std::{
 use anyhow::Result;
 use app_dirs2::{AppDataType, AppInfo};
 
-use crate::{Controller, SharedAppData, Strip};
+use crate::{Controller, ScheduleUi, SharedAppData, Strip};
 
 impl SharedAppData {
     pub fn new() -> Self {
         SharedAppData {
             strips: vec![Strip(0, 0), Strip(0, 0)],
+            // Yes, the program just started, so the strips *have* changed from
+            // their previous, unknown state.
+            strips_changed: true,
             controller: Controller::Manual,
             relay_enabled: false,
             relay_changed: false,
+            schedule: ScheduleUi {
+                start: "6h30m".to_string(),
+                length: "30m".to_string(),
+                endpoint: vec![Strip(u16::MAX, 0); 2],
+                send: None,
+                status_changed: false,
+            },
         }
     }
 
@@ -29,7 +39,7 @@ impl SharedAppData {
             name: "ledc",
             author: "ckie",
         };
-        Ok(app_dirs2::app_root(AppDataType::UserConfig, &info)?.with_file_name("state"))
+        Ok(app_dirs2::app_root(AppDataType::UserConfig, &info)?.join("state"))
     }
 
     pub fn load_config() -> Result<Self> {

@@ -1,12 +1,12 @@
-use eframe::egui;
+use eframe::egui::{self, Grid, SelectableLabel, TextEdit, Ui};
 use std::{
     sync::atomic,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime},
 };
 
 use eframe::egui::Slider;
 
-use crate::{Controller, LedApp, WaveType};
+use crate::{Controller, LedApp, Strip, WaveType};
 
 impl eframe::App for LedApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -49,17 +49,33 @@ impl eframe::App for LedApp {
                 }
             });
 
-            ui.horizontal_wrapped(|ui| {
-                for (i, strip) in dat.strips.iter_mut().enumerate() {
-                    ui.vertical(|ui| {
-                        ui.group(|ui| {
-                            ui.label(format!("Strip {i}"));
-                            ui.add(Slider::new(&mut strip.0, 0..=65535).text("cold"));
-                            ui.add(Slider::new(&mut strip.1, 0..=65535).text("warm"));
-                        });
-                    });
-                }
-            });
+            let make_strip_controls = |ui: &mut Ui, strips: &mut Vec<Strip>| -> bool {
+                ui.horizontal_wrapped(|ui| {
+                    let mut changed = false;
+                    for (i, strip) in strips.iter_mut().enumerate() {
+                        changed |= ui
+                            .vertical(|ui| {
+                                ui.group(|ui| {
+                                    ui.label(format!("Strip {i}"));
+                                    let mut changed = false;
+                                    changed |= ui
+                                        .add(Slider::new(&mut strip.0, 0..=65535).text("cold"))
+                                        .changed();
+                                    changed |= ui
+                                        .add(Slider::new(&mut strip.1, 0..=65535).text("warm"))
+                                        .changed();
+                                    changed
+                                })
+                                .inner
+                            })
+                            .inner
+                    }
+                    changed
+                })
+                .inner
+            };
+
+            dat.strips_changed |= make_strip_controls(ui, &mut dat.strips);
 
             self.poll_update_fast = false;
             if let Controller::Wave {
@@ -112,6 +128,56 @@ impl eframe::App for LedApp {
                     });
                 });
             }
+
+            ui.group(|ui| {
+                if ui
+                    .selectable_label(dat.schedule.send.is_some(), "Schedule")
+                    .clicked()
+                {
+                    if dat.schedule.send.is_none() {
+                        dat.schedule.send = Some(SystemTime::now());
+                    } else {
+                        // Force push of controller state.
+                        dat.schedule.send = None;
+                        dat.strips_changed = true;
+                    }
+                    dat.schedule.status_changed = true;
+                }
+
+                if {
+                    ui.vertical(|ui| {
+                        Grid::new("schedule_grid")
+                            .num_columns(2)
+                            .show(ui, |ui| {
+                                let mut changed = false;
+                                ui.label("begin after");
+                                changed |= ui
+                                    .add(
+                                        TextEdit::singleline(&mut dat.schedule.start)
+                                            .desired_width(80.),
+                                    )
+                                    .changed();
+                                ui.end_row();
+
+                                ui.label("transition length");
+                                changed |= ui
+                                    .add(
+                                        TextEdit::singleline(&mut dat.schedule.length)
+                                            .desired_width(80.),
+                                    )
+                                    .changed();
+                                ui.end_row();
+
+                                changed
+                            })
+                            .inner
+                    })
+                    .inner
+                } || make_strip_controls(ui, &mut dat.schedule.endpoint)
+                {
+                    dat.schedule.send = None;
+                }
+            });
         });
 
         // The user is probably touching us, let's save the config.

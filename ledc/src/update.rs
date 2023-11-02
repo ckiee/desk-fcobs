@@ -1,4 +1,5 @@
 use std::{
+    io::{stdout, Write},
     sync::{Arc, Mutex},
     thread::{self, sleep},
     time::Duration,
@@ -7,15 +8,20 @@ use std::{
 use anyhow::Result;
 use serialport::SerialPort;
 
-use crate::{open_serial, Controller, SharedAppData, WaveType};
+use crate::{open_serial, Controller, SharedAppData, Strip, WaveType};
 
 pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) {
     let mut port = open_serial();
     loop {
+        // What we're going to send over the wire.
         let serial_data = {
             thread::sleep(Duration::from_millis(5));
+            // prepare the data, copying it (as we serialize?) so we don't hold the lock
+            // up as long in case of a deadlock. originally thought this would improve
+            // perf in normal cases too, but nope.
             let mut dat = arc.lock().unwrap();
 
+            // Mode-specific logic
             {
                 match dat.controller {
                     Controller::Manual => {}
@@ -53,36 +59,76 @@ pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) {
                 };
             }
 
-            // prepare the data, copying it so we don't hold the lock up as long
-            // in case of a deadlock. originally thought this would improve perf
-            // in normal cases too, but nope.
-
             let mut out = Vec::with_capacity(24);
 
-            // set the led strip's states
-            out.push(0x4);
-            out.push(0x1);
-            dat.strips
-                .iter()
-                .map(|strip| vec![u16::MAX - strip.0, u16::MAX - strip.1])
-                .flat_map(|words| {
-                    words
-                        .iter()
-                        .map(|word| vec![(word >> 8) as u8, (word & 0xff) as u8])
-                        .collect::<Vec<_>>()
-                })
-                .for_each(|mut dat| out.append(&mut dat));
+            let push_strips = |strips: &[Strip], out: &mut Vec<u8>| {
+                strips
+                    .iter()
+                    // Invert, so our 0 is no light
+                    .map(|strip| vec![u16::MAX - strip.0, u16::MAX - strip.1])
+                    // Convert to big endian bytes
+                    .flat_map(|words| {
+                        words
+                            .iter()
+                            .map(|word| Vec::from(word.to_be_bytes()))
+                            .collect::<Vec<_>>()
+                    })
+                    // Push.
+                    .for_each(|mut dat| out.append(&mut dat))
+            };
+
+            // out.push(0x3); //IDebugEnable
+
+            if dat.schedule.status_changed {
+                dat.schedule.status_changed = false;
+                // Are we sending, or cancelling?
+                if dat.schedule.send.is_some() {
+                    out.push(0x2); // IInterpolateFrame
+
+                    // TODO: Parse these in the UI and have `Duration`s ready to go here.
+                    let start = humantime::parse_duration(&dat.schedule.start).unwrap();
+                    let length = humantime::parse_duration(&dat.schedule.length).unwrap();
+
+                    out.extend_from_slice(&u32::try_from(start.as_millis()).unwrap().to_be_bytes());
+                    out.extend_from_slice(
+                        &u32::try_from(length.as_millis()).unwrap().to_be_bytes(),
+                    );
+
+                    push_strips(&dat.schedule.endpoint, &mut out); // [Strip]
+                } else {
+                    out.push(0x4); // INoInterpolate
+                }
+            }
+
+            // out.push(0x4); // INoInterpolate
+
+            // Selectively push live light data (:
+            if match dat.controller {
+                Controller::Manual if dat.strips_changed => {
+                    dat.strips_changed = false;
+                    true
+                }
+                Controller::Wave { .. } => true,
+                _ => false,
+            } {
+                out.push(0x1); // IImmediate
+                push_strips(&dat.strips, &mut out); // [Strip]
+            }
 
             if dat.relay_changed {
-                out.push(0x5);
-                out.push(if dat.relay_enabled { 255 } else { 0 });
+                out.push(0x5); // IRelayControl
+                out.push(dat.relay_enabled.into()) // bool
             }
 
             out
         };
 
+        // Send it!
         let send = |port: &mut Box<dyn SerialPort>, serial_data: &Vec<u8>| -> Result<()> {
             port.write_all(serial_data)?;
+            let mut buf = vec![0u8; port.bytes_to_read().unwrap() as usize];
+            port.read_exact(&mut buf).unwrap();
+            stdout().lock().write_all(&buf).unwrap();
             Ok(())
         };
         let mut tries = 0;

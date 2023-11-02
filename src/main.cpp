@@ -180,8 +180,17 @@ void interpolate() {
 	uint16_t *awork = (uint16_t*)&work;
 	for (int i = 0; i < 4; i++) {
 		dbgln("iter#%d: aenp=%f, astrp=%f(%d * %f)", i, aend[i]*progress,astart[i]*(1.0-progress),astart[i],1.0-progress);
-		// overly complex because U16_MAX is actually 0 brightness, not full 65535 brightness. legacy.
-		awork[i] = U16_MAX-(uint16_t)((double)(U16_MAX-aend[i])*(progress) - (double)(U16_MAX-astart[i])*(1.0-progress));
+		// FIXME: all these inverts are to avoid touching the surrounding code,
+		// but still get some reasonable units
+		// astart[i] ~= U16_MAX;
+		// aend[i] ~= U16_MAX;
+
+		// lerp
+		awork[i] = (uint16_t)((1.-progress)*((double)(astart[i])) + progress*((double)(aend[1])));
+
+		// astart[i] ~= U16_MAX;
+		// aend[i] ~= U16_MAX;
+		// awork[i] ~= U16_MAX;
 	}
 
 	set_led_state(&work);
