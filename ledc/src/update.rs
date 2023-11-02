@@ -1,5 +1,5 @@
 use std::{
-    io::{Write},
+    io::Write,
     sync::{Arc, Mutex},
     thread::{self, sleep},
     time::{Duration, SystemTime},
@@ -41,7 +41,7 @@ pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) -> Result<()> {
                     } => {
                         let pos = started_at.elapsed().as_millis() as f32 / interval_ms;
                         let pos_mod = pos % 1.0;
-                        let u16_max = u16::MAX as f32;
+                        let u16_max = f32::from(u16::MAX);
                         let u16_halfmax = u16_max / 2.0;
                         let val = match ty {
                             WaveType::Sine => pos.sin() * u16_halfmax + u16_halfmax,
@@ -81,7 +81,7 @@ pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) -> Result<()> {
                             .collect::<Vec<_>>()
                     })
                     // Push.
-                    .for_each(|mut dat| out.append(&mut dat))
+                    .for_each(|mut dat| out.append(&mut dat));
             };
 
             // out.push(0x3); //IDebugEnable
@@ -148,7 +148,7 @@ pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) -> Result<()> {
                     true
                 }
                 Controller::Wave { .. } => true,
-                _ => false,
+                Controller::Manual => false,
             } {
                 out.push(0x1); // IImmediate
                 push_strips(&dat.strips, &mut out); // [Strip]
@@ -157,7 +157,7 @@ pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) -> Result<()> {
 
             if dat.relay_changed {
                 out.push(0x5); // IRelayControl
-                out.push(dat.relay_enabled.into()) // bool
+                out.push(dat.relay_enabled.into()); // bool
             }
 
             (realtime, out)
@@ -176,9 +176,7 @@ pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) -> Result<()> {
         };
         let mut tries = 0;
         while let Err(err) = send(&mut port, &serial_data) {
-            if tries >= 3 {
-                panic!("serial port write failed too many times: {:?}", err);
-            }
+            assert!(tries < 3, "serial port write failed too many times: {err:?}");
             // try reopening the port after a bit..
             sleep(Duration::from_millis(50));
             port = open_serial();

@@ -1,3 +1,6 @@
+// #![warn(clippy::pedantic)]
+// #![allow(clippy::must_use_candidate)]
+
 use std::{
     sync::{atomic::AtomicBool, Arc, Mutex},
     thread::{sleep, spawn, JoinHandle},
@@ -85,7 +88,7 @@ pub fn open_serial() -> Box<dyn SerialPort> {
         match result {
             Ok(port) => return port,
             Err(err) => {
-                eprintln!("[try {tries}] serial port open failed: {:?}", err);
+                eprintln!("[try {tries}] serial port open failed: {err:?}");
                 tries += 1;
                 sleep(Duration::from_millis(100));
             }

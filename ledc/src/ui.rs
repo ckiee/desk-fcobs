@@ -1,4 +1,4 @@
-use eframe::egui::{self, Grid, TextEdit, Ui, InnerResponse};
+use eframe::egui::{self, Grid, InnerResponse, TextEdit, Ui};
 use std::{
     sync::atomic,
     time::{Duration, Instant, SystemTime},
@@ -49,30 +49,31 @@ impl eframe::App for LedApp {
                 }
             });
 
-            let make_strip_controls = |ui: &mut Ui, strips: &mut Vec<Strip>| -> InnerResponse<bool> {
-                ui.horizontal_wrapped(|ui| {
-                    let mut changed = false;
-                    for (i, strip) in strips.iter_mut().enumerate() {
-                        changed |= ui
-                            .vertical(|ui| {
-                                ui.group(|ui| {
-                                    ui.label(format!("Strip {i}"));
-                                    let mut changed = false;
-                                    changed |= ui
-                                        .add(Slider::new(&mut strip.0, 0..=65535).text("cold"))
-                                        .changed();
-                                    changed |= ui
-                                        .add(Slider::new(&mut strip.1, 0..=65535).text("warm"))
-                                        .changed();
-                                    changed
+            let make_strip_controls =
+                |ui: &mut Ui, strips: &mut Vec<Strip>| -> InnerResponse<bool> {
+                    ui.horizontal_wrapped(|ui| {
+                        let mut changed = false;
+                        for (i, strip) in strips.iter_mut().enumerate() {
+                            changed |= ui
+                                .vertical(|ui| {
+                                    ui.group(|ui| {
+                                        ui.label(format!("Strip {i}"));
+                                        let mut changed = false;
+                                        changed |= ui
+                                            .add(Slider::new(&mut strip.0, 0..=65535).text("cold"))
+                                            .changed();
+                                        changed |= ui
+                                            .add(Slider::new(&mut strip.1, 0..=65535).text("warm"))
+                                            .changed();
+                                        changed
+                                    })
+                                    .inner
                                 })
-                                .inner
-                            })
-                            .inner
-                    }
-                    changed
-                })
-            };
+                                .inner;
+                        }
+                        changed
+                    })
+                };
 
             dat.strips_changed |= make_strip_controls(ui, &mut dat.strips).inner;
 
@@ -129,8 +130,7 @@ impl eframe::App for LedApp {
             }
 
             ui.group(|ui| {
-                let btn = ui
-                    .selectable_label(dat.schedule.send.is_some(), "Schedule");
+                let btn = ui.selectable_label(dat.schedule.send.is_some(), "Schedule");
                 if btn.clicked() {
                     if dat.schedule.send.is_none() {
                         dat.schedule.send = Some(SystemTime::now());
@@ -149,33 +149,34 @@ impl eframe::App for LedApp {
 
                 if {
                     ui.vertical(|ui| {
-                        ui.horizontal(|ui|{
-                        Grid::new("schedule_grid")
-                            .num_columns(2)
-                            .show(ui, |ui| {
-                                let mut changed = false;
-                                ui.label("begin after");
-                                changed |= ui
-                                    .add(
-                                        TextEdit::singleline(&mut dat.schedule.start)
-                                            .desired_width(80.),
-                                    )
-                                    .changed();
-                                ui.end_row();
+                        ui.horizontal(|ui| {
+                            Grid::new("schedule_grid")
+                                .num_columns(2)
+                                .show(ui, |ui| {
+                                    let mut changed = false;
+                                    ui.label("begin after");
+                                    changed |= ui
+                                        .add(
+                                            TextEdit::singleline(&mut dat.schedule.start)
+                                                .desired_width(80.),
+                                        )
+                                        .changed();
+                                    ui.end_row();
 
-                                ui.label("transition length");
-                                changed |= ui
-                                    .add(
-                                        TextEdit::singleline(&mut dat.schedule.length)
-                                            .desired_width(80.),
-                                    )
-                                    .changed();
-                                ui.end_row();
+                                    ui.label("transition length");
+                                    changed |= ui
+                                        .add(
+                                            TextEdit::singleline(&mut dat.schedule.length)
+                                                .desired_width(80.),
+                                        )
+                                        .changed();
+                                    ui.end_row();
 
-                                changed
-                            })
-                            .inner
-                        }).inner
+                                    changed
+                                })
+                                .inner
+                        })
+                        .inner
                     })
                     .inner
                 } || make_strip_controls(ui, &mut dat.schedule.endpoint).inner
