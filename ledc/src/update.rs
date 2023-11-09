@@ -88,14 +88,13 @@ pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) -> Result<()> {
 
             'schedule: {
                 // TODO: Parse these in the UI and have `Duration`s ready to go here.
-                let sched_start_res = humantime::parse_duration(&dat.schedule.start);
-                let sched_length_res = humantime::parse_duration(&dat.schedule.length);
-
                 // this is hacky because its not meant to be here, unsurprisingly
-                if sched_start_res.is_err() {
-                    break 'schedule;
-                }
-                if sched_length_res.is_err() {
+                let sched_start_res = humantime::parse_duration(&dat.schedule.start.0);
+                let sched_length_res = humantime::parse_duration(&dat.schedule.length.0);
+
+                dat.schedule.start.1 = sched_start_res.clone().err().map(|_| ());
+                dat.schedule.length.1 = sched_length_res.clone().err().map(|_| ());
+                if sched_start_res.is_err() || sched_length_res.is_err() {
                     break 'schedule;
                 }
 

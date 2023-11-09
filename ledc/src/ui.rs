@@ -1,4 +1,7 @@
-use eframe::egui::{self, Grid, InnerResponse, TextEdit, Ui};
+use eframe::{
+    egui::{self, Grid, InnerResponse, TextEdit, Ui},
+    epaint::Color32,
+};
 use std::{
     sync::atomic,
     time::{Duration, Instant, SystemTime},
@@ -159,19 +162,24 @@ impl eframe::App for LedApp {
                                 .show(ui, |ui| {
                                     let mut changed = false;
                                     ui.label("begin after");
+
+                                    let start_color = dat.schedule.start.1.map(|_| Color32::RED);
                                     changed |= ui
                                         .add(
-                                            TextEdit::singleline(&mut dat.schedule.start)
-                                                .desired_width(80.),
+                                            TextEdit::singleline(&mut dat.schedule.start.0)
+                                                .desired_width(80.)
+                                                .text_color_opt(start_color),
                                         )
                                         .changed();
                                     ui.end_row();
 
+                                    let length_color = dat.schedule.length.1.map(|_| Color32::RED);
                                     ui.label("transition length");
                                     changed |= ui
                                         .add(
-                                            TextEdit::singleline(&mut dat.schedule.length)
-                                                .desired_width(80.),
+                                            TextEdit::singleline(&mut dat.schedule.length.0)
+                                                .desired_width(80.)
+                                                .text_color_opt(length_color),
                                         )
                                         .changed();
                                     ui.end_row();

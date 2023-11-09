@@ -25,12 +25,12 @@ impl SharedAppData {
             relay_enabled: false,
             relay_changed: false,
             schedule: ScheduleUi {
-                start: "6h30m".to_string(),
-                length: "30m".to_string(),
+                start: ("6h30m".to_string(), None),
+                length: ("30m".to_string(), None),
                 endpoint: vec![Strip(u16::MAX, 0); 2],
                 send: None,
                 status_changed: false,
-                swap_on_stop: false
+                swap_on_stop: false,
             },
         }
     }

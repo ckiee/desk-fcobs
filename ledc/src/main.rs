@@ -45,8 +45,11 @@ enum WaveType {
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 struct ScheduleUi {
-    start: String,
-    length: String,
+    /// incredibly dumb type on `start` and
+    /// `length` but its gonna work
+    /// .0 is content, .1 is validity (Some is invalid)
+    start: (String, Option<()>),
+    length: (String, Option<()>),
     endpoint: Vec<Strip>,
     send: Option<SystemTime>, // TODO: Set to none once `length` has passed.
     status_changed: bool,
