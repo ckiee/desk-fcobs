@@ -178,7 +178,10 @@ pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) -> Result<()> {
         };
         let mut tries = 0;
         while let Err(err) = send(&mut port, &serial_data) {
-            assert!(tries < 3, "serial port write failed too many times: {err:?}");
+            assert!(
+                tries < 3,
+                "serial port write failed too many times: {err:?}"
+            );
             // try reopening the port after a bit..
             sleep(Duration::from_millis(50));
             port = open_serial();
