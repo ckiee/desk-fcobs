@@ -130,22 +130,26 @@ impl eframe::App for LedApp {
             }
 
             ui.group(|ui| {
-                let btn = ui.selectable_label(dat.schedule.send.is_some(), "Schedule");
-                if btn.clicked() {
-                    if dat.schedule.send.is_none() {
-                        dat.schedule.send = Some(SystemTime::now());
-                    } else {
-                        // Force push of controller state.
-                        dat.schedule.send = None;
-                        dat.strips_changed = true;
+                ui.horizontal(|ui| {
+                    let btn = ui.selectable_label(dat.schedule.send.is_some(), "Schedule");
+                    if btn.clicked() {
+                        if dat.schedule.send.is_none() {
+                            dat.schedule.send = Some(SystemTime::now());
+                        } else {
+                            // Force push of controller state.
+                            dat.schedule.send = None;
+                            dat.strips_changed = true;
+                        }
+                        dat.schedule.status_changed = true;
+                    } else if btn.secondary_clicked() {
+                        // Swap
+                        let prev = dat.strips.clone();
+                        dat.strips = dat.schedule.endpoint.clone();
+                        dat.schedule.endpoint = prev;
                     }
-                    dat.schedule.status_changed = true;
-                } else if btn.secondary_clicked() {
-                    // Swap
-                    let prev = dat.strips.clone();
-                    dat.strips = dat.schedule.endpoint.clone();
-                    dat.schedule.endpoint = prev;
-                }
+
+                    ui.checkbox(&mut dat.schedule.swap_on_stop, "Swap on stop");
+                });
 
                 if {
                     ui.vertical(|ui| {

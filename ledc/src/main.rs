@@ -50,6 +50,7 @@ struct ScheduleUi {
     endpoint: Vec<Strip>,
     send: Option<SystemTime>, // TODO: Set to none once `length` has passed.
     status_changed: bool,
+    swap_on_stop: bool,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]

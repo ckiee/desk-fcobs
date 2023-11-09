@@ -91,7 +91,7 @@ pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) -> Result<()> {
                 let sched_start = humantime::parse_duration(&dat.schedule.start)?;
                 let sched_length = humantime::parse_duration(&dat.schedule.length)?;
 
-                // Reconcile with MCU, swap if animation stopped (probably ended, we hope)
+                // Reconcile with MCU, maybe swap if animation stopped (probably ended, we hope)
                 //
                 // - This has to run before we start a new animation.
                 // - We're not guaranteed timing for animation_running updates
@@ -110,9 +110,11 @@ pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) -> Result<()> {
                     }) && !animation_running
                     {
                         // Swap
-                        let prev = dat.strips.clone();
-                        dat.strips = dat.schedule.endpoint.clone();
-                        dat.schedule.endpoint = prev;
+                        if dat.schedule.swap_on_stop {
+                            let prev = dat.strips.clone();
+                            dat.strips = dat.schedule.endpoint.clone();
+                            dat.schedule.endpoint = prev;
+                        }
                         // Sync that we're no longer running
                         dat.schedule.send = None;
                     }

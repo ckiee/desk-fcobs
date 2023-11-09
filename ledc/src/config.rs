@@ -30,6 +30,7 @@ impl SharedAppData {
                 endpoint: vec![Strip(u16::MAX, 0); 2],
                 send: None,
                 status_changed: false,
+                swap_on_stop: false
             },
         }
     }
