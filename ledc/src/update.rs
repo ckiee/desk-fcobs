@@ -86,10 +86,21 @@ pub fn update_thread(arc: Arc<Mutex<SharedAppData>>) -> Result<()> {
 
             // out.push(0x3); //IDebugEnable
 
-            {
+            'schedule: {
                 // TODO: Parse these in the UI and have `Duration`s ready to go here.
-                let sched_start = humantime::parse_duration(&dat.schedule.start)?;
-                let sched_length = humantime::parse_duration(&dat.schedule.length)?;
+                let sched_start_res = humantime::parse_duration(&dat.schedule.start);
+                let sched_length_res = humantime::parse_duration(&dat.schedule.length);
+
+                // this is hacky because its not meant to be here, unsurprisingly
+                if sched_start_res.is_err() {
+                    break 'schedule;
+                }
+                if sched_length_res.is_err() {
+                    break 'schedule;
+                }
+
+                let sched_start = sched_start_res?;
+                let sched_length = sched_length_res?;
 
                 // Reconcile with MCU, maybe swap if animation stopped (probably ended, we hope)
                 //
